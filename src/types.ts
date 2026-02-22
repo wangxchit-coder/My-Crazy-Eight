@@ -8,7 +8,7 @@ export interface CardData {
   isWild?: boolean;
 }
 
-export type GameStatus = 'dealing' | 'player_turn' | 'ai_turn' | 'suit_selection' | 'game_over';
+export type GameStatus = 'waiting_to_start' | 'dealing' | 'player_turn' | 'ai_turn' | 'suit_selection' | 'game_over';
 
 export interface GameState {
   deck: CardData[];

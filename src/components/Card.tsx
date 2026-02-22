@@ -31,32 +31,32 @@ export const Card: React.FC<CardProps> = ({
       whileHover={isPlayable && !disabled ? { y: -15, scale: 1.05 } : {}}
       onClick={!disabled ? onClick : undefined}
       className={`
-        relative w-24 h-36 md:w-32 md:h-48 rounded-xl cursor-pointer select-none transition-shadow
+        relative w-16 h-24 md:w-24 md:h-36 rounded-lg cursor-pointer select-none transition-shadow
         ${isFaceUp ? 'bg-white' : 'bg-blue-900 border-2 border-blue-800'}
-        ${isPlayable && !disabled ? 'ring-4 ring-emerald-400 shadow-lg shadow-emerald-400/20' : 'shadow-md'}
+        ${isPlayable && !disabled ? 'ring-2 ring-emerald-400 shadow-lg shadow-emerald-400/20' : 'shadow-md'}
         ${disabled ? 'cursor-not-allowed opacity-80' : ''}
         ${className}
       `}
     >
       {isFaceUp ? (
-        <div className={`flex flex-col h-full p-2 md:p-3 ${suitColor}`}>
+        <div className={`flex flex-col h-full p-1.5 md:p-2 ${suitColor}`}>
           <div className="flex justify-between items-start">
-            <span className="text-xl md:text-2xl font-bold leading-none">{card.rank}</span>
-            <span className="text-lg md:text-xl leading-none">{suitSymbol}</span>
+            <span className="text-sm md:text-lg font-bold leading-none">{card.rank}</span>
+            <span className="text-xs md:text-sm leading-none">{suitSymbol}</span>
           </div>
           
           <div className="flex-grow flex items-center justify-center">
-            <span className="text-4xl md:text-6xl">{suitSymbol}</span>
+            <span className="text-2xl md:text-4xl">{suitSymbol}</span>
           </div>
           
           <div className="flex justify-between items-end rotate-180">
-            <span className="text-xl md:text-2xl font-bold leading-none">{card.rank}</span>
-            <span className="text-lg md:text-xl leading-none">{suitSymbol}</span>
+            <span className="text-sm md:text-lg font-bold leading-none">{card.rank}</span>
+            <span className="text-xs md:text-sm leading-none">{suitSymbol}</span>
           </div>
           
           {card.rank === '8' && (
             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-              <span className="text-8xl font-black">8</span>
+              <span className="text-4xl md:text-6xl font-black">8</span>
             </div>
           )}
         </div>

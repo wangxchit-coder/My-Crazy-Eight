@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, RotateCcw, Info, User, Cpu, ChevronRight } from 'lucide-react';
+import { Trophy, RotateCcw, Info, User, Cpu, ChevronRight, Undo2, Play } from 'lucide-react';
 import { Card } from './components/Card';
 import { SuitSelector } from './components/SuitSelector';
 import { 
@@ -27,13 +27,34 @@ export default function App() {
     discardPile: [],
     currentSuit: 'hearts',
     currentRank: null,
-    status: 'dealing',
+    status: 'waiting_to_start',
     winner: null,
-    message: '正在准备游戏...'
+    message: '欢迎来到 Crazy Eights！'
   });
 
   const [showSuitSelector, setShowSuitSelector] = useState(false);
   const [pendingWildCard, setPendingWildCard] = useState<CardData | null>(null);
+  const [history, setHistory] = useState<GameState[]>([]);
+
+  // Helper to save state for undo
+  const saveHistory = useCallback(() => {
+    setHistory(prev => {
+      const newHistory = [...prev, { ...gameState }];
+      // Limit history to last 10 moves to save memory
+      return newHistory.slice(-10);
+    });
+  }, [gameState]);
+
+  // Undo function
+  const handleUndo = () => {
+    if (history.length === 0) return;
+
+    const lastState = history[history.length - 1];
+    setGameState(lastState);
+    setHistory(prev => prev.slice(0, -1));
+    setPendingWildCard(null);
+    setShowSuitSelector(false);
+  };
 
   // Initialize Game
   const initGame = useCallback(() => {
@@ -59,11 +80,13 @@ export default function App() {
       winner: null,
       message: '轮到你了！出牌或摸牌。'
     });
+    setHistory([]);
   }, []);
 
-  useEffect(() => {
-    initGame();
-  }, [initGame]);
+  // Remove auto-init on mount
+  // useEffect(() => {
+  //   initGame();
+  // }, [initGame]);
 
   // Player Actions
   const handlePlayCard = (card: CardData) => {
@@ -73,6 +96,8 @@ export default function App() {
       setGameState(prev => ({ ...prev, message: '这张牌不能出！' }));
       return;
     }
+
+    saveHistory();
 
     if (card.rank === '8') {
       setPendingWildCard(card);
@@ -96,6 +121,8 @@ export default function App() {
       return;
     }
 
+    saveHistory();
+
     const newDeck = [...gameState.deck];
     const drawnCard = newDeck.pop()!;
     
@@ -111,6 +138,8 @@ export default function App() {
   const handleSuitSelect = (suit: Suit) => {
     if (!pendingWildCard) return;
 
+    // History is already saved in handlePlayCard for the 8 card
+    
     const newPlayerHand = gameState.playerHand.filter(c => c.id !== pendingWildCard.id);
     
     setGameState(prev => ({
@@ -130,6 +159,11 @@ export default function App() {
 
   const executeMove = (who: 'player' | 'ai', card: CardData, newSuit?: Suit) => {
     const isPlayer = who === 'player';
+    
+    if (!isPlayer) {
+      saveHistory();
+    }
+
     const hand = isPlayer ? gameState.playerHand : gameState.aiHand;
     const newHand = hand.filter(c => c.id !== card.id);
     
@@ -226,12 +260,29 @@ export default function App() {
               <span className="capitalize text-sm">{gameState.currentSuit}</span>
             </div>
           </div>
-          <button 
-            onClick={initGame}
-            className="p-3 rounded-xl bg-blue-900 hover:bg-blue-800 text-blue-300 transition-colors border border-blue-800"
-          >
-            <RotateCcw size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              className={`
+                flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all border
+                ${history.length > 0 
+                  ? 'bg-blue-900/50 hover:bg-blue-800 text-blue-100 border-blue-700' 
+                  : 'bg-blue-950/50 text-blue-900 border-blue-900 cursor-not-allowed'}
+              `}
+              title="撤销上一步"
+            >
+              <Undo2 size={18} />
+              <span className="text-xs font-bold hidden md:inline">撤销 ({history.length})</span>
+            </button>
+            <button 
+              onClick={initGame}
+              className="p-3 rounded-xl bg-blue-900 hover:bg-blue-800 text-blue-300 transition-colors border border-blue-800"
+              title="重新开始"
+            >
+              <RotateCcw size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -244,7 +295,7 @@ export default function App() {
             <Cpu size={14} className="text-blue-400" />
             <span className="text-xs font-mono text-blue-400">AI OPPONENT ({gameState.aiHand.length})</span>
           </div>
-          <div className="flex justify-center -space-x-12 md:-space-x-16">
+          <div className="flex justify-center -space-x-8 md:-space-x-12">
             <AnimatePresence>
               {gameState.aiHand.map((card, index) => (
                 <Card 
@@ -252,7 +303,6 @@ export default function App() {
                   card={card} 
                   isFaceUp={false} 
                   disabled 
-                  className="scale-75 md:scale-90"
                 />
               ))}
             </AnimatePresence>
@@ -267,18 +317,18 @@ export default function App() {
             <div 
               onClick={handleDrawCard}
               className={`
-                relative w-24 h-36 md:w-32 md:h-48 rounded-xl border-2 border-dashed border-blue-700 
+                relative w-16 h-24 md:w-24 md:h-36 rounded-lg border-2 border-dashed border-blue-700 
                 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-all
                 ${gameState.status !== 'player_turn' ? 'opacity-50 cursor-not-allowed' : ''}
               `}
             >
               {gameState.deck.length > 0 ? (
                 <>
-                  <div className="absolute inset-0 bg-blue-900 rounded-xl -rotate-2 translate-x-1 translate-y-1 border border-blue-800" />
-                  <div className="absolute inset-0 bg-blue-900 rounded-xl rotate-1 -translate-x-1 -translate-y-1 border border-blue-800" />
-                  <div className="relative w-full h-full bg-blue-900 rounded-xl border-2 border-blue-800 flex items-center justify-center overflow-hidden">
-                     <div className="w-12 h-12 rounded-full bg-blue-950 flex items-center justify-center border border-blue-800">
-                        <span className="text-xl font-bold text-blue-500">{gameState.deck.length}</span>
+                  <div className="absolute inset-0 bg-blue-900 rounded-lg -rotate-2 translate-x-1 translate-y-1 border border-blue-800" />
+                  <div className="absolute inset-0 bg-blue-900 rounded-lg rotate-1 -translate-x-1 -translate-y-1 border border-blue-800" />
+                  <div className="relative w-full h-full bg-blue-900 rounded-lg border-2 border-blue-800 flex items-center justify-center overflow-hidden">
+                     <div className="w-8 h-8 rounded-full bg-blue-950 flex items-center justify-center border border-blue-800">
+                        <span className="text-sm font-bold text-blue-500">{gameState.deck.length}</span>
                      </div>
                   </div>
                 </>
@@ -292,7 +342,7 @@ export default function App() {
           {/* Discard Pile */}
           <div className="relative">
             <div className="absolute -inset-8 bg-blue-500/5 rounded-full blur-3xl" />
-            <div className="relative w-24 h-36 md:w-32 md:h-48">
+            <div className="relative w-16 h-24 md:w-24 md:h-36">
               <AnimatePresence mode="popLayout">
                 {gameState.discardPile.slice(0, 3).reverse().map((card, i) => (
                   <motion.div
@@ -324,18 +374,21 @@ export default function App() {
             </div>
           </div>
           
-          <div className="flex justify-center flex-wrap gap-2 md:gap-4 max-w-4xl px-4">
-            <AnimatePresence>
-              {gameState.playerHand.map((card) => (
-                <Card 
-                  key={card.id} 
-                  card={card} 
-                  onClick={() => handlePlayCard(card)}
-                  isPlayable={gameState.status === 'player_turn' && canPlayCard(card, gameState.currentSuit, gameState.currentRank)}
-                  disabled={gameState.status !== 'player_turn'}
-                />
-              ))}
-            </AnimatePresence>
+          <div className="w-full max-w-6xl px-4 overflow-x-auto no-scrollbar pb-6">
+            <div className="flex justify-center flex-nowrap gap-1 md:gap-2 min-w-max mx-auto px-4">
+              <AnimatePresence>
+                {gameState.playerHand.map((card) => (
+                  <div key={card.id} className="flex-shrink-0">
+                    <Card 
+                      card={card} 
+                      onClick={() => handlePlayCard(card)}
+                      isPlayable={gameState.status === 'player_turn' && canPlayCard(card, gameState.currentSuit, gameState.currentRank)}
+                      disabled={gameState.status !== 'player_turn'}
+                    />
+                  </div>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </main>
@@ -357,6 +410,89 @@ export default function App() {
 
       {/* Modals */}
       <AnimatePresence>
+        {gameState.status === 'waiting_to_start' && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-blue-950 p-4"
+          >
+            {/* Animated background for start screen */}
+            <div className="absolute inset-0 overflow-hidden opacity-20">
+              {[...Array(20)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ 
+                    x: Math.random() * window.innerWidth, 
+                    y: Math.random() * window.innerHeight,
+                    rotate: Math.random() * 360 
+                  }}
+                  animate={{ 
+                    y: [null, Math.random() * -500],
+                    rotate: [null, Math.random() * 360]
+                  }}
+                  transition={{ 
+                    duration: 10 + Math.random() * 20, 
+                    repeat: Infinity, 
+                    ease: "linear" 
+                  }}
+                  className="absolute w-16 h-24 md:w-24 md:h-36 bg-blue-900/40 rounded-lg border border-blue-700/50"
+                />
+              ))}
+            </div>
+
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="relative z-10 text-center max-w-2xl"
+            >
+              <motion.div 
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="w-32 h-32 md:w-48 md:h-48 bg-emerald-500 rounded-[2.5rem] mx-auto mb-8 flex items-center justify-center shadow-2xl shadow-emerald-500/40"
+              >
+                <span className="text-6xl md:text-8xl font-black text-white">8</span>
+              </motion.div>
+              
+              <h1 className="text-5xl md:text-7xl font-black text-white mb-4 tracking-tighter">
+                CRAZY <span className="text-emerald-400">EIGHTS</span>
+              </h1>
+              
+              <p className="text-blue-300 text-lg md:text-xl mb-12 max-w-md mx-auto leading-relaxed">
+                经典扑克游戏。出掉你所有的手牌，记住：<span className="text-white font-bold">8 是万能牌！</span>
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 text-left">
+                <div className="bg-blue-900/40 p-4 rounded-2xl border border-blue-800">
+                  <div className="text-emerald-400 font-bold mb-1 text-sm">规则 1</div>
+                  <div className="text-blue-100 text-xs">跟出相同花色或点数的牌。</div>
+                </div>
+                <div className="bg-blue-900/40 p-4 rounded-2xl border border-blue-800">
+                  <div className="text-emerald-400 font-bold mb-1 text-sm">规则 2</div>
+                  <div className="text-blue-100 text-xs">数字 8 可以随时出，并改变当前花色。</div>
+                </div>
+                <div className="bg-blue-900/40 p-4 rounded-2xl border border-blue-800">
+                  <div className="text-emerald-400 font-bold mb-1 text-sm">目标</div>
+                  <div className="text-blue-100 text-xs">第一个清空手牌的玩家获胜。</div>
+                </div>
+              </div>
+
+              <button 
+                onClick={initGame}
+                className="group relative px-12 py-5 bg-white text-blue-950 font-black text-xl rounded-2xl hover:bg-emerald-400 transition-all shadow-xl hover:shadow-emerald-500/20 flex items-center gap-3 mx-auto"
+              >
+                <Play fill="currentColor" size={24} />
+                开始游戏
+                <motion.div 
+                  className="absolute -inset-1 rounded-2xl bg-white/20 blur-lg group-hover:bg-emerald-400/20 transition-all"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
         {showSuitSelector && (
           <SuitSelector onSelect={handleSuitSelect} />
         )}
